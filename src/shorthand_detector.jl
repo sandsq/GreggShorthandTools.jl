@@ -1,13 +1,11 @@
 module shorthand_detector
-# Classification of MNIST dataset using a convolutional network,
-# which is a variant of the original LeNet from 1998.
-
-# This example uses a GPU if you have one.
-# And demonstrates how to save model state.
+include("Drawer/Drawer.jl")
+using .Drawer
 
 using MLDatasets, Flux, JLD2  # this will install everything if necc.
 using Statistics: mean  # standard library
 using ImageCore, ImageInTerminal
+using FileIO
 
 export run
 
@@ -33,22 +31,24 @@ function run()
     # exit()
 
 
-    function ready_picture!(picture_path::String, label::String, all_features::Vector{Array{Float32, 2}}, all_labels::Vector{String})
-        img = load(picture_path)
+    function ready_picture!(picture_path::String, label::String, all_features::Vector{Array{Float32,2}}, all_labels::Vector{String})
+        img = FileIO.load(picture_path)
         img_array = Gray.(img)
+
         push!(all_features, img_array)
         push!(all_labels, label)
     end
 
-    global_subdirs = ["k", "r"]
+    global_subdirs = ["k", "p", "r"]
     function load_from_directory(proportion::Float64)
-        base_dir = "data"
+        base_dir = joinpath(@__DIR__, "..", "data")
+        # "data"
 
         # hard coded image size for now
-        training_features = Vector{Array{Float32, 2}}()
+        training_features = Vector{Array{Float32,2}}()
         training_labels = Vector{String}()
 
-        testing_features = Vector{Array{Float32, 2}}()
+        testing_features = Vector{Array{Float32,2}}()
         testing_labels = Vector{String}()
 
         for subdir in global_subdirs
@@ -56,6 +56,7 @@ function run()
             num_instances = length(readdir(full_dir))
             train_range = 1:floor(Int, num_instances * proportion)
             test_range = ceil(Int, num_instances * proportion):num_instances
+            println("train range $(train_range) and test range $(test_range)")
             for picture_number in train_range
                 # println("picture number $picture_number")
                 ready_picture!("$(full_dir)/$(picture_number).png", subdir, training_features, training_labels)
@@ -73,14 +74,15 @@ function run()
     end
     train_data, test_data = load_from_directory(0.8)
     println("training features $(size(train_data.features))")
-    println("training labels $(train_data.targets)")
-    # exit()
+    println("training labels $(size(train_data.targets))")
+    # println(train_data.features)
+    exit()
 
     # train_data.features is a 28×28×60000 Array{Float32, 3} of the images.
     # Flux needs a 4D array, with the 3rd dim for channels -- here trivial, grayscale.
     # Combine the reshape needed with other pre-processing:
 
-    function loader(data::Data=train_data; batchsize::Int=16)
+    function loader(data::Data=train_data; batchsize::Int=64)
         x4dim = reshape(data.features, 50, 50, 1, :)   # insert trivial channel dim
         yhot = Flux.onehotbatch(data.targets, global_subdirs)  # make a 10×60000 OneHotMatrix
         Flux.DataLoader((x4dim, yhot); batchsize, shuffle=true) |> gpu
@@ -106,7 +108,7 @@ function run()
         Flux.flatten,
         Dense(1296 => 120, relu),
         Dense(120 => 84, relu),
-        Dense(84 => 2),
+        Dense(84 => 3),
     ) |> gpu
 
     # Notice that most of the parameters are in the final Dense layers.
@@ -147,7 +149,7 @@ function run()
     settings = (;
         eta=3e-4,     # learning rate
         lambda=1e-2,  # for weight decay
-        batchsize=64,
+        batchsize=128,
         epochs=10,
     )
     train_log = []
@@ -253,7 +255,7 @@ function run()
         Flux.flatten,
         Dense(_ => 120, relu),
         Dense(_ => 84, relu),
-        Dense(_ => 2)
+        Dense(_ => 3)
     )
 
     # Check that this indeed accepts input the same size as above:
@@ -275,6 +277,14 @@ function run()
 
     @show lenet2(cpu(x1)) ≈ cpu(lenet(x1))
 
+
+    written_r = FileIO.load("data/written_r.png")
+    written_r = Gray.(written_r)
+    written_r = reshape(written_r, 50, 50, 1, :)
+    vals = softmax(lenet(written_r))
+    println("$(vals), $(global_subdirs)")
+    prediction = Flux.onecold(softmax(lenet2(written_r)), global_subdirs)
+    println(prediction)
 
     #===== THE END =====#
 end

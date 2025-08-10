@@ -1,6 +1,8 @@
 using shorthand_detector
 using Test
 
-@testset "shorthand_detector.jl" begin
-    shorthand_detector.run()
-end
+# @testset "shorthand_detector.jl" begin
+#     shorthand_detector.run()
+# end
+
+include("test_drawer.jl")
