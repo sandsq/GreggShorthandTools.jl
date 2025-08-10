@@ -10,5 +10,5 @@ Documentation for [shorthand_detector](https://github.com/sandsq/shorthand_detec
 ```
 
 ```@autodocs
-Modules = [shorthand_detector]
+Modules = [shorthand_detector, shorthand_detector.Drawer]
 ```
