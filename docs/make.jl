@@ -6,9 +6,9 @@ DocMeta.setdocmeta!(shorthand_detector, :DocTestSetup, :(using shorthand_detecto
 makedocs(;
     modules=[shorthand_detector],
     authors="sand",
-    sitename="shorthand_detector.jl",
+    sitename="shorthand_detector",
     format=Documenter.HTML(;
-        canonical="https://sandsq.github.io/shorthand_detector.jl",
+        canonical="https://sandsq.github.io/shorthand_detector",
         edit_link="main",
         assets=String[],
     ),
@@ -18,6 +18,6 @@ makedocs(;
 )
 
 deploydocs(;
-    repo="github.com/sandsq/shorthand_detector.jl",
+    repo="github.com/sandsq/shorthand_detector",
     devbranch="main",
 )

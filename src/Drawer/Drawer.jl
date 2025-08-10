@@ -20,6 +20,11 @@ const CENTER_Y = CANVAS_HEIGHT / 2
 #     finish()
 # end
 
+"""
+  draw_stroke()
+
+Draw `k` or `g` stroke. Rotate for `r, l, p, b, f, v`
+"""
 function draw_stroke()
     println("saving $(BASE_DIR)/k_path.png")
 
