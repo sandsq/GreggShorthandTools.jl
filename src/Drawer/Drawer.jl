@@ -8,7 +8,7 @@ using Luxor
 import Random: AbstractRNG, default_rng
 
 const BASE_DIR = joinpath(@__DIR__, "..", "..", "data")
-const SQUARE_CANVAS_SIZE = 200
+const SQUARE_CANVAS_SIZE = 50
 const CANVAS_HEIGHT = SQUARE_CANVAS_SIZE
 const CANVAS_WIDTH = SQUARE_CANVAS_SIZE
 const CENTER_X = CANVAS_WIDTH / 2
@@ -26,10 +26,12 @@ const CENTER_Y = CANVAS_HEIGHT / 2
 
 Draw `k` or `g` stroke. Rotate for `r, l, p, b, f, v`
 """
-function draw_stroke(rng::AbstractRNG)
-    println("saving $(BASE_DIR)/k_path.png")
+function draw_stroke(rng::AbstractRNG, path::String; rotation=0)
+    # println("saving $(BASE_DIR)/k_path.png")
+    println("saving to $path")
 
-    Drawing(CANVAS_HEIGHT, CANVAS_WIDTH, "$(BASE_DIR)/k_path.png")
+    Drawing(CANVAS_HEIGHT, CANVAS_WIDTH, path)
+    origin(CENTER_X, CENTER_Y)
     background("white")
 
     function randomize_between(inner_rng::AbstractRNG, min_thickness::Number, max_thickness::Number)
@@ -39,9 +41,9 @@ function draw_stroke(rng::AbstractRNG)
 
     # scale(0.25)
 
-    tiny_offset_base() = randomize_between(rng, 16, 18)
+    tiny_offset_base() = randomize_between(rng, 14, 20)
     small_offset_base() = randomize_between(rng, 7, 9)
-    medium_offset_base() = randomize_between(rng, 4, 5)
+    medium_offset_base() = randomize_between(rng, 4.5, 6.5)
     large_offset_base() = randomize_between(rng, 2, 3)
 
     tiny_offset_x() = CANVAS_WIDTH / tiny_offset_base()
@@ -53,42 +55,41 @@ function draw_stroke(rng::AbstractRNG)
     large_offset_x() = CANVAS_WIDTH / large_offset_base()
     large_offset_y() = CANVAS_HEIGHT / large_offset_base()
 
-    sethue(0.1, 0.6, 0.8)
-    # sethue("red")
-    line(Point(CANVAS_WIDTH / 2, 0), Point(CANVAS_WIDTH / 2, CANVAS_HEIGHT))
-    line(Point(0, CANVAS_HEIGHT / 2), Point(CANVAS_WIDTH, CANVAS_HEIGHT / 2))
-    strokepath()
+    # sethue(0.1, 0.6, 0.8)
+    # line(Point(CANVAS_WIDTH / 2, 0), Point(CANVAS_WIDTH / 2, CANVAS_HEIGHT))
+    # line(Point(0, CANVAS_HEIGHT / 2), Point(CANVAS_WIDTH, CANVAS_HEIGHT / 2))
+    # strokepath()
+
+    rotate(rotation)
 
     sethue("black")
-    p1 = Point(CENTER_X - medium_offset_x(), CENTER_Y + tiny_offset_y())
-    p2 = Point(CENTER_X + medium_offset_x(), CENTER_Y - medium_offset_y())
+    p1 = Point(-medium_offset_x(), tiny_offset_y())
+    p2 = Point(medium_offset_x(), -small_offset_y())
 
     should_hook_back = true
     if should_hook_back
         p3_randomized_offset = medium_offset_x()
-        p3 = Point(CENTER_X + p3_randomized_offset, CENTER_Y)
+        p3 = Point(p3_randomized_offset, 0)
         curve(p1, p2, p3)
         strokepath()
         setline(randomize_between(rng, 1.5, 2.5))
 
         p4_randomized_offset = tiny_offset_y()
-        p4 = Point(CENTER_X + p3_randomized_offset, CENTER_Y + 0.5 * p4_randomized_offset)
-        p5 = Point(CENTER_X + p3_randomized_offset * 0.9, CENTER_Y + p4_randomized_offset)
+        p4 = Point(p3_randomized_offset, 0.5 * p4_randomized_offset)
+        p5 = Point(p3_randomized_offset * 0.9, p4_randomized_offset)
         curve(p3, p4, p5)
     else
-        p3 = Point(CENTER_X + medium_offset_x(), CENTER_Y + tiny_offset_y())
+        p3 = Point(medium_offset_x(), tiny_offset_y())
         curve(p1, p2, p3)
     end
 
-
     strokepath()
-
 
     finish()
 end
 
-function draw_stroke()
-    draw_stroke(default_rng())
+function draw_stroke(args...; kwargs...)
+    draw_stroke(default_rng(), args...; kwargs...)
 end
 
 

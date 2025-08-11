@@ -2,9 +2,11 @@ module shorthand_detector
 include("Drawer/Drawer.jl")
 using .Drawer
 
+using AMDGPU
+# AMDGPU.allowscalar(true)
 using MLDatasets, Flux, JLD2  # this will install everything if necc.
 using Statistics: mean  # standard library
-using ImageCore, ImageInTerminal
+using ImageCore, ImageInTerminal, Images
 using FileIO
 
 export run
@@ -76,7 +78,7 @@ function run()
     println("training features $(size(train_data.features))")
     println("training labels $(size(train_data.targets))")
     # println(train_data.features)
-    exit()
+    # exit()
 
     # train_data.features is a 28×28×60000 Array{Float32, 3} of the images.
     # Flux needs a 4D array, with the 3rd dim for channels -- here trivial, grayscale.
@@ -113,7 +115,7 @@ function run()
 
     # Notice that most of the parameters are in the final Dense layers.
 
-    y1hat = lenet(x1)  # try it out
+    AMDGPU.@allowscalar y1hat = lenet(x1)  # try it out
 
     sum(softmax(y1hat); dims=1)
 
@@ -277,14 +279,21 @@ function run()
 
     @show lenet2(cpu(x1)) ≈ cpu(lenet(x1))
 
+    function predict_on_file(path)
+        println(path)
+        written_r = FileIO.load(path)
+        written_r = Gray.(written_r)
+        written_r = imresize(written_r, (50, 50))
+        written_r = reshape(written_r, 50, 50, 1, :)
+        vals = softmax(lenet(written_r))
+        println("$(vals), $(global_subdirs)")
+        prediction = Flux.onecold(softmax(lenet2(written_r)), global_subdirs)
+        println(prediction)
+    end
 
-    written_r = FileIO.load("data/written_r.png")
-    written_r = Gray.(written_r)
-    written_r = reshape(written_r, 50, 50, 1, :)
-    vals = softmax(lenet(written_r))
-    println("$(vals), $(global_subdirs)")
-    prediction = Flux.onecold(softmax(lenet2(written_r)), global_subdirs)
-    println(prediction)
+    predict_on_file("data/written_k.png")
+    predict_on_file("data/k_path.png")
+    predict_on_file("data/r-transformed.png")
 
     #===== THE END =====#
 end
