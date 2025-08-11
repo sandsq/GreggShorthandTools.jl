@@ -1,4 +1,4 @@
-module GreggAlphabet
+module Alphabet
 
 using Match
 

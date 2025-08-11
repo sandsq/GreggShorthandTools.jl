@@ -5,13 +5,13 @@ export test_func,
     draw_stroke
 
 # include("../GreggAlphabet.jl")
-using ..GreggAlphabet
+using ..GreggShorthandTools.Alphabet
 using Luxor
 using Match
 import Random: AbstractRNG, default_rng
 
 const BASE_DIR = joinpath(@__DIR__, "..", "..", "data")
-const SQUARE_CANVAS_SIZE = 50
+const SQUARE_CANVAS_SIZE = 100
 const CANVAS_HEIGHT = SQUARE_CANVAS_SIZE
 const CANVAS_WIDTH = SQUARE_CANVAS_SIZE
 const CENTER_X = CANVAS_WIDTH / 2
@@ -29,7 +29,7 @@ const CENTER_Y = CANVAS_HEIGHT / 2
 
 Draw `k` or `g` stroke. Rotate for `r, l, p, b, f, v`
 """
-function draw_stroke(rng::AbstractRNG, letter::Letter, path::String; rotation=0)
+function draw_stroke(rng::AbstractRNG, letter::Letter, path::String)
     # println("saving $(BASE_DIR)/k_path.png")
     println("saving to $path")
 
@@ -44,57 +44,72 @@ function draw_stroke(rng::AbstractRNG, letter::Letter, path::String; rotation=0)
 
     # scale(0.25)
 
-    (tiny_range, small_range, medium_range, large_range) =
-        if letter == _K
-            ((14, 20), (7, 9), (4.5, 6.5), (2, 3))
-        elseif letter == _G
-            ((14, 20), (7, 9), (2.1, 3), (2, 3))
+    (scaling_offset_x, scaling_offset_y) =
+        if letter == _K || letter == _R
+            (6, 6)
+        elseif letter == _G || letter == _L
+            (3, 4)
+        else
+            error("$letter is not a valid Gregg letter")
+        end
+    base_left_bezier_point = Point(-CANVAS_WIDTH / scaling_offset_x, 0.3 * CANVAS_HEIGHT / scaling_offset_y)
+    base_middle_bezier_point = Point(CANVAS_WIDTH / scaling_offset_x, -CANVAS_HEIGHT / scaling_offset_y)
+    base_right_bezier_point = Point(CANVAS_WIDTH / scaling_offset_x, 0.3 * CANVAS_HEIGHT / scaling_offset_y)
+
+    base_middle_bezier_point_hook_variant = Point(0.9 * CANVAS_WIDTH / scaling_offset_x, -CANVAS_HEIGHT / scaling_offset_y)
+    base_right_bezier_point_hook_start = Point(CANVAS_WIDTH / scaling_offset_x, -0.2 * CANVAS_HEIGHT / scaling_offset_y)
+    base_right_bezier_point_hook_middle = Point(CANVAS_WIDTH / scaling_offset_x, 0)
+    base_right_bezier_point_hook_end = Point(0.9 * CANVAS_WIDTH / scaling_offset_x, 0.3 * CANVAS_HEIGHT / scaling_offset_y)
+
+
+    rotation =
+        if letter == _K || letter == _G
+            0
+        elseif letter == _L || letter == _R
+            pi
         else
             error("$letter is not a valid Gregg letter")
         end
 
-    println("med range $medium_range")
-    exit()
-    tiny_offset_base() = randomize_between(rng, tiny_range...)
-    small_offset_base() = randomize_between(rng, small_range...)
-    # medium_offset_base() = randomize_between(rng, 4.5, 6.5)
-    medium_offset_base() = randomize_between(rng, medium_range...)
-    large_offset_base() = randomize_between(rng, large_range...)
+    # tiny_offset_base() = randomize_between(rng, tiny_range...)
+    # small_offset_base() = randomize_between(rng, small_range...)
+    # # medium_offset_base() = randomize_between(rng, 4.5, 6.5)
+    # medium_offset_base() = randomize_between(rng, medium_range...)
+    # large_offset_base() = randomize_between(rng, large_range...)
 
-    tiny_offset_x() = CANVAS_WIDTH / tiny_offset_base()
-    tiny_offset_y() = CANVAS_HEIGHT / tiny_offset_base()
-    small_offset_x() = CANVAS_WIDTH / small_offset_base()
-    small_offset_y() = CANVAS_HEIGHT / small_offset_base()
-    medium_offset_x() = CANVAS_WIDTH / medium_offset_base()
-    medium_offset_y() = CANVAS_HEIGHT / medium_offset_base()
-    large_offset_x() = CANVAS_WIDTH / large_offset_base()
-    large_offset_y() = CANVAS_HEIGHT / large_offset_base()
+    # tiny_offset_x() = CANVAS_WIDTH / tiny_offset_base()
+    # tiny_offset_y() = CANVAS_HEIGHT / tiny_offset_base()
+    # small_offset_x() = CANVAS_WIDTH / small_offset_base()
+    # small_offset_y() = CANVAS_HEIGHT / small_offset_base()
+    # medium_offset_x() = CANVAS_WIDTH / medium_offset_base()
+    # medium_offset_y() = CANVAS_HEIGHT / medium_offset_base()
+    # large_offset_x() = CANVAS_WIDTH / large_offset_base()
+    # large_offset_y() = CANVAS_HEIGHT / large_offset_base()
 
-    # sethue(0.1, 0.6, 0.8)
-    # line(Point(CANVAS_WIDTH / 2, 0), Point(CANVAS_WIDTH / 2, CANVAS_HEIGHT))
-    # line(Point(0, CANVAS_HEIGHT / 2), Point(CANVAS_WIDTH, CANVAS_HEIGHT / 2))
-    # strokepath()
+    sethue(0.1, 0.6, 0.8)
+    line(Point(-CANVAS_WIDTH, 0), Point(CANVAS_WIDTH, 0))
+    line(Point(0, CANVAS_HEIGHT), Point(0, -CANVAS_HEIGHT))
+    strokepath()
 
     rotate(rotation)
 
     sethue("black")
-    p1 = Point(-medium_offset_x(), tiny_offset_y())
-    p2 = Point(medium_offset_x(), -small_offset_y())
+    p1 = base_left_bezier_point
 
     should_hook_back = true
     if should_hook_back
-        p3_randomized_offset = medium_offset_x()
-        p3 = Point(p3_randomized_offset, 0)
+        p2 = base_middle_bezier_point_hook_variant
+        p3 = base_right_bezier_point_hook_start
         curve(p1, p2, p3)
         strokepath()
         setline(randomize_between(rng, 1.5, 2.5))
 
-        p4_randomized_offset = tiny_offset_y()
-        p4 = Point(p3_randomized_offset, 0.5 * p4_randomized_offset)
-        p5 = Point(p3_randomized_offset * 0.9, p4_randomized_offset)
+        p4 = base_right_bezier_point_hook_middle
+        p5 = base_right_bezier_point_hook_end
         curve(p3, p4, p5)
     else
-        p3 = Point(medium_offset_x(), tiny_offset_y())
+        p2 = base_middle_bezier_point
+        p3 = base_right_bezier_point
         curve(p1, p2, p3)
     end
 

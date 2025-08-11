@@ -74,6 +74,6 @@ jobs:
         shell: julia --project=docs --color=yes {0}
         run: |
           using Documenter: DocMeta, doctest
-          using shorthand_detector
-          DocMeta.setdocmeta!(shorthand_detector, :DocTestSetup, :(using shorthand_detector); recursive=true)
-          doctest(shorthand_detector)
+          using GreggShorthandTools
+          DocMeta.setdocmeta!(GreggShorthandTools, :DocTestSetup, :(using GreggShorthandTools); recursive=true)
+          doctest(GreggShorthandTools)

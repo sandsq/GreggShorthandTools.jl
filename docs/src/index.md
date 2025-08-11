@@ -1,14 +1,14 @@
 ```@meta
-CurrentModule = shorthand_detector
+CurrentModule = GreggShorthandTools
 ```
 
-# shorthand_detector
+# GreggShorthandTools
 
-Documentation for [shorthand_detector](https://github.com/sandsq/shorthand_detector.jl).
+Documentation for [GreggShorthandTools](https://github.com/sandsq/GreggShorthandTools.jl).
 
 ```@index
 ```
 
 ```@autodocs
-Modules = [shorthand_detector, shorthand_detector.Drawer]
+Modules = [GreggShorthandTools, GreggShorthandTools.Drawer]
 ```

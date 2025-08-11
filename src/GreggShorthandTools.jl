@@ -1,6 +1,6 @@
-module shorthand_detector
-include("GreggAlphabet.jl")
-using .GreggAlphabet
+module GreggShorthandTools
+include("Alphabet.jl")
+using .Alphabet
 include("Drawer/Drawer.jl")
 using .Drawer
 

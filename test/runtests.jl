@@ -1,8 +1,8 @@
-using shorthand_detector
+using GreggShorthandTools
 using Test
 
-# @testset "shorthand_detector.jl" begin
-#     shorthand_detector.run()
+# @testset "GreggShorthandTools.jl" begin
+#     GreggShorthandTools.run()
 # end
 
 include("test_drawer.jl")

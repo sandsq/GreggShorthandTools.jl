@@ -1,14 +1,14 @@
-using shorthand_detector
+using GreggShorthandTools
 using Documenter
 
-DocMeta.setdocmeta!(shorthand_detector, :DocTestSetup, :(using shorthand_detector); recursive=true)
+DocMeta.setdocmeta!(GreggShorthandTools, :DocTestSetup, :(using GreggShorthandTools); recursive=true)
 
 makedocs(;
-    modules=[shorthand_detector],
+    modules=[GreggShorthandTools],
     authors="sand",
-    sitename="shorthand_detector",
+    sitename="GreggShorthandTools",
     format=Documenter.HTML(;
-        canonical="https://sandsq.github.io/shorthand_detector",
+        canonical="https://sandsq.github.io/GreggShorthandTools",
         edit_link="main",
         assets=String[],
     ),
@@ -18,6 +18,6 @@ makedocs(;
 )
 
 deploydocs(;
-    repo="github.com/sandsq/shorthand_detector",
+    repo="github.com/sandsq/GreggShorthandTools",
     devbranch="main",
 )
