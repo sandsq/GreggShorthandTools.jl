@@ -22,6 +22,9 @@ function Base.length(d::Data)
     return length(d.targets)
 end
 
+const IMAGE_SIZE_X = 100
+const IMAGE_SIZE_Y = 100
+
 function run()
 
     folder = "runs"  # sub-directory in which to save
@@ -44,7 +47,7 @@ function run()
     end
 
     # global_subdirs = ["k", "p", "r", "g"]
-    letters_to_predict = [_K, _P, _R, _G]
+    letters_to_predict = [_K, _G, _R, _L]
     function load_from_directory(proportion::Float64)
         base_dir = joinpath(@__DIR__, "..", "data")
         # "data"
@@ -72,8 +75,8 @@ function run()
                 ready_picture!("$(full_dir)/$(picture_number).png", subdir_enum, testing_features, testing_labels)
             end
         end
-        training_features = reshape(reduce(hcat, training_features), 50, 50, :)
-        testing_features = reshape(reduce(hcat, testing_features), 50, 50, :)
+        training_features = reshape(reduce(hcat, training_features), IMAGE_SIZE_X, IMAGE_SIZE_Y, :)
+        testing_features = reshape(reduce(hcat, testing_features), IMAGE_SIZE_X, IMAGE_SIZE_Y, :)
         # training_data = Dict("features" => training_features, "targets" => training_labels)
         # testing_data = Dict("features" => testing_features, "targets" => testing_labels)
         return Data(training_features, training_labels, :train), Data(testing_features, testing_labels, :test)
@@ -89,8 +92,10 @@ function run()
     # Combine the reshape needed with other pre-processing:
 
     function loader(data::Data=train_data; batchsize::Int=64)
-        x4dim = reshape(data.features, 50, 50, 1, :)   # insert trivial channel dim
+        x4dim = reshape(data.features, IMAGE_SIZE_X, IMAGE_SIZE_Y, 1, :)   # insert trivial channel dim
         yhot = Flux.onehotbatch(data.targets, letters_to_predict)  # make a 10×60000 OneHotMatrix
+        println("x4dim $(size(x4dim))")
+        println("yhot $(size(yhot))")
         Flux.DataLoader((x4dim, yhot); batchsize, shuffle=true) |> gpu
     end
 
@@ -112,7 +117,7 @@ function run()
         Conv((5, 5), 6 => 16, relu),
         MaxPool((2, 2)),
         Flux.flatten,
-        Dense(1296 => 120, relu),
+        Dense(7744 => 120, relu),
         Dense(120 => 84, relu),
         Dense(84 => length(letters_to_predict)),
     ) |> gpu
@@ -139,14 +144,16 @@ function run()
 
 
     function loss_and_accuracy(model, data::Data=test_data)
-        (x, y) = only(loader(data; batchsize=length(data)))  # make one big batch
+        d = loader(data; batchsize=length(data))  # make one big batch
+        # d = loader(data; batchsize=100)
+        (x, y) = only(d)
         ŷ = model(x)
         loss = Flux.logitcrossentropy(ŷ, y)  # did not include softmax in the model
         acc = round(100 * mean(Flux.onecold(ŷ) .== Flux.onecold(y)); digits=2)
         (; loss, acc, split=data.split)  # return a NamedTuple
     end
 
-    @show loss_and_accuracy(lenet)  # accuracy about 10%, before training
+    @show loss_and_accuracy(lenet)
 
     #===== TRAINING =====#
 
@@ -166,6 +173,7 @@ function run()
     opt_rule = OptimiserChain(WeightDecay(settings.lambda), Adam(settings.eta))
     opt_state = Flux.setup(opt_rule, lenet)
 
+    # println("@@@@@@@@@@@@@@@@@@ skipping training for now by setting epochs to 0")
     for epoch in 1:settings.epochs
         # @time will show a much longer time for the first epoch, due to compilation
         @time for (x, y) in loader(batchsize=settings.batchsize)
@@ -254,7 +262,7 @@ function run()
     # Flux.flatten is just reshape, preserving the batch dimesion (64) while combining others (4*4*16).
     # This 256 must match the Dense(256 => 120). Here is how to automate this, with Flux.outputsize:
 
-    lenet2 = Flux.@autosize (50, 50, 1, 1) Chain(
+    lenet2 = Flux.@autosize (IMAGE_SIZE_X, IMAGE_SIZE_Y, 1, 1) Chain(
         Conv((5, 5), 1 => 6, relu),
         MaxPool((2, 2)),
         Conv((5, 5), _ => 16, relu),
@@ -285,21 +293,27 @@ function run()
     @show lenet2(cpu(x1)) ≈ cpu(lenet(x1))
 
     function predict_on_file(path)
-        println(path)
         written_r = FileIO.load(path)
         written_r = Gray.(written_r)
-        written_r = imresize(written_r, (50, 50))
-        written_r = reshape(written_r, 50, 50, 1, :)
-        vals = softmax(lenet(written_r))
+        written_r = imresize(written_r, (IMAGE_SIZE_X, IMAGE_SIZE_Y))
+        written_r = reshape(written_r, IMAGE_SIZE_X, IMAGE_SIZE_Y, 1, :)
+        vals = softmax(lenet2(written_r))
+
+        println("@@@@@")
         println("$(vals), $(letters_to_predict)")
         prediction = Flux.onecold(softmax(lenet2(written_r)), letters_to_predict)
+        println(path)
         println(prediction)
+        println()
     end
 
     predict_on_file("data/written_k.png")
-    predict_on_file("data/k_path.png")
+    predict_on_file("data/written_k_background_corrected.png")
     predict_on_file("data/r-transformed.png")
-    predict_on_file("data/g_path.png")
+    predict_on_file("data/handwritten/k.png")
+    predict_on_file("data/handwritten/g.png")
+    predict_on_file("data/handwritten/r.png")
+    predict_on_file("data/handwritten/l.png")
 
     #===== THE END =====#
 end

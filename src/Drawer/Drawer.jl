@@ -40,11 +40,22 @@ function draw_stroke(rng::AbstractRNG, letter::Letter, path::String)
 
     Drawing(CANVAS_HEIGHT, CANVAS_WIDTH, path)
     origin(CENTER_X, CENTER_Y)
-    background("white")
 
     function randomize_between(inner_rng::AbstractRNG, min_thickness::Number, max_thickness::Number)
         return min_thickness + rand(inner_rng, Float64) * (max_thickness - min_thickness)
     end
+
+    bg_grey = randomize_between(rng, 0.7, 1.0)
+    background(bg_grey, bg_grey, bg_grey)
+
+    D = 100
+    mat = [Luxor.ARGB32(
+        noise(0.01r, 0.01c),
+        noise(0.01r, 0.01c),
+        noise(0.01r, 0.01c),
+        noise(0.01r, 0.01c)) for r in 1:D, c in 1:D]
+    placeimage(mat, boxtopleft())
+
     setline(randomize_between(rng, 1, 2))
 
     # scale(0.25)
@@ -71,8 +82,8 @@ function draw_stroke(rng::AbstractRNG, letter::Letter, path::String)
     base_middle_bezier_point_hook_variant = Point(0.5 * CANVAS_WIDTH / scaling_offset_x, -0.5 * CANVAS_HEIGHT / scaling_offset_y) * (jitter_x(0.5, 1.1), jitter_y(0.9, 1.5))
     # the hook randomization needs to be the same to ensure the concavity doesn't break
     hook_jitter = (jitter_x(), jitter_y(0.9, 1.25))
-    base_right_bezier_point_hook_start = Point(CANVAS_WIDTH / scaling_offset_x, 0.0 * CANVAS_HEIGHT / scaling_offset_y) * hook_jitter
-    base_right_bezier_point_hook_middle = Point(CANVAS_WIDTH / scaling_offset_x, 0.2 * CANVAS_HEIGHT / scaling_offset_y) * hook_jitter
+    base_right_bezier_point_hook_start = Point(0.9 * CANVAS_WIDTH / scaling_offset_x, -0.2 * CANVAS_HEIGHT / scaling_offset_y) * hook_jitter
+    base_right_bezier_point_hook_middle = Point(CANVAS_WIDTH / scaling_offset_x, 0.1 * CANVAS_HEIGHT / scaling_offset_y) * hook_jitter
     base_right_bezier_point_hook_end = Point(0.85 * CANVAS_WIDTH / scaling_offset_x, 0.3 * CANVAS_HEIGHT / scaling_offset_y) * hook_jitter
 
 
@@ -105,7 +116,13 @@ function draw_stroke(rng::AbstractRNG, letter::Letter, path::String)
     # line(Point(0, CANVAS_HEIGHT), Point(0, -CANVAS_HEIGHT))
     # strokepath()
 
-    rotate(rotation)
+    rotate(rotation * randomize_between(rng, 0.9, 1.1))
+    translation_amount_x = CANVAS_WIDTH / scaling_offset_x / 3
+    translation_amount_y = CANVAS_HEIGHT / scaling_offset_y / 3
+    translation_noise_x = randomize_between(rng, -translation_amount_x, translation_amount_x)
+    translation_noise_y = randomize_between(rng, -translation_amount_y, translation_amount_y)
+    translate(translation_noise_x, translation_noise_y)
+    # transform([1 0.2 0.2 1 0 0])
 
     sethue("black")
     p1 = base_left_bezier_point
@@ -128,6 +145,7 @@ function draw_stroke(rng::AbstractRNG, letter::Letter, path::String)
     end
 
     strokepath()
+
 
     finish()
 end
