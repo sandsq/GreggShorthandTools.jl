@@ -47,7 +47,7 @@ function run()
     end
 
     # global_subdirs = ["k", "p", "r", "g"]
-    letters_to_predict = [_K, _G, _R, _L]
+    letters_to_predict = [_K, _G, _R, _L, _P, _B, _F, _V, _T, _D, _N, _M]
     function load_from_directory(proportion::Float64)
         base_dir = joinpath(@__DIR__, "..", "data")
         # "data"
@@ -314,6 +314,16 @@ function run()
     predict_on_file("data/handwritten/g.png")
     predict_on_file("data/handwritten/r.png")
     predict_on_file("data/handwritten/l.png")
+
+    predict_on_file("data/handwritten/p.png")
+    predict_on_file("data/handwritten/b.png")
+    predict_on_file("data/handwritten/f.png")
+    predict_on_file("data/handwritten/v.png")
+
+    predict_on_file("data/t/1.png")
+    predict_on_file("data/d/1.png")
+    predict_on_file("data/m/1.png")
+    predict_on_file("data/n/1.png")
 
     #===== THE END =====#
 end
