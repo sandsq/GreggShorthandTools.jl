@@ -24,6 +24,11 @@ const CENTER_Y = CANVAS_HEIGHT / 2
 #     finish()
 # end
 
+# multiply elementwise
+function Base.:*(p1::Point, p2::Point)
+    return Point(p1.x * p2.x, p1.y * p2.y)
+end
+
 """
   draw_stroke()
 
@@ -40,10 +45,11 @@ function draw_stroke(rng::AbstractRNG, letter::Letter, path::String)
     function randomize_between(inner_rng::AbstractRNG, min_thickness::Number, max_thickness::Number)
         return min_thickness + rand(inner_rng, Float64) * (max_thickness - min_thickness)
     end
-    setline(randomize_between(rng, 0.9, 1.5))
+    setline(randomize_between(rng, 1, 2))
 
     # scale(0.25)
 
+    # these values are manually tuned
     (scaling_offset_x, scaling_offset_y) =
         if letter == _K || letter == _R
             (6, 6)
@@ -52,14 +58,22 @@ function draw_stroke(rng::AbstractRNG, letter::Letter, path::String)
         else
             error("$letter is not a valid Gregg letter")
         end
-    base_left_bezier_point = Point(-CANVAS_WIDTH / scaling_offset_x, 0.3 * CANVAS_HEIGHT / scaling_offset_y)
-    base_middle_bezier_point = Point(CANVAS_WIDTH / scaling_offset_x, -CANVAS_HEIGHT / scaling_offset_y)
-    base_right_bezier_point = Point(CANVAS_WIDTH / scaling_offset_x, 0.3 * CANVAS_HEIGHT / scaling_offset_y)
+    jitter_x() = randomize_between(rng, 0.75, 1.25)
+    jitter_y() = randomize_between(rng, 0.75, 1.25)
+    jitter_x(x, y) = randomize_between(rng, x, y)
+    jitter_y(x, y) = randomize_between(rng, x, y)
 
-    base_middle_bezier_point_hook_variant = Point(0.9 * CANVAS_WIDTH / scaling_offset_x, -CANVAS_HEIGHT / scaling_offset_y)
-    base_right_bezier_point_hook_start = Point(CANVAS_WIDTH / scaling_offset_x, -0.2 * CANVAS_HEIGHT / scaling_offset_y)
-    base_right_bezier_point_hook_middle = Point(CANVAS_WIDTH / scaling_offset_x, 0)
-    base_right_bezier_point_hook_end = Point(0.9 * CANVAS_WIDTH / scaling_offset_x, 0.3 * CANVAS_HEIGHT / scaling_offset_y)
+
+    base_left_bezier_point = Point(-CANVAS_WIDTH / scaling_offset_x, 0.3 * CANVAS_HEIGHT / scaling_offset_y) * (jitter_x(), jitter_y())
+    base_middle_bezier_point = Point(CANVAS_WIDTH / scaling_offset_x, -CANVAS_HEIGHT / scaling_offset_y) * (jitter_x(0.5, 1.1), jitter_y())
+    base_right_bezier_point = Point(CANVAS_WIDTH / scaling_offset_x, 0.3 * CANVAS_HEIGHT / scaling_offset_y) * (jitter_x(), jitter_y())
+
+    base_middle_bezier_point_hook_variant = Point(0.5 * CANVAS_WIDTH / scaling_offset_x, -0.5 * CANVAS_HEIGHT / scaling_offset_y) * (jitter_x(0.5, 1.1), jitter_y(0.9, 1.5))
+    # the hook randomization needs to be the same to ensure the concavity doesn't break
+    hook_jitter = (jitter_x(), jitter_y(0.9, 1.25))
+    base_right_bezier_point_hook_start = Point(CANVAS_WIDTH / scaling_offset_x, 0.0 * CANVAS_HEIGHT / scaling_offset_y) * hook_jitter
+    base_right_bezier_point_hook_middle = Point(CANVAS_WIDTH / scaling_offset_x, 0.2 * CANVAS_HEIGHT / scaling_offset_y) * hook_jitter
+    base_right_bezier_point_hook_end = Point(0.85 * CANVAS_WIDTH / scaling_offset_x, 0.3 * CANVAS_HEIGHT / scaling_offset_y) * hook_jitter
 
 
     rotation =
@@ -86,10 +100,10 @@ function draw_stroke(rng::AbstractRNG, letter::Letter, path::String)
     # large_offset_x() = CANVAS_WIDTH / large_offset_base()
     # large_offset_y() = CANVAS_HEIGHT / large_offset_base()
 
-    sethue(0.1, 0.6, 0.8)
-    line(Point(-CANVAS_WIDTH, 0), Point(CANVAS_WIDTH, 0))
-    line(Point(0, CANVAS_HEIGHT), Point(0, -CANVAS_HEIGHT))
-    strokepath()
+    # sethue(0.1, 0.6, 0.8)
+    # line(Point(-CANVAS_WIDTH, 0), Point(CANVAS_WIDTH, 0))
+    # line(Point(0, CANVAS_HEIGHT), Point(0, -CANVAS_HEIGHT))
+    # strokepath()
 
     rotate(rotation)
 
@@ -102,7 +116,7 @@ function draw_stroke(rng::AbstractRNG, letter::Letter, path::String)
         p3 = base_right_bezier_point_hook_start
         curve(p1, p2, p3)
         strokepath()
-        setline(randomize_between(rng, 1.5, 2.5))
+        setline(randomize_between(rng, 1, 3))
 
         p4 = base_right_bezier_point_hook_middle
         p5 = base_right_bezier_point_hook_end
