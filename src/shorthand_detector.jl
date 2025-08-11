@@ -1,8 +1,10 @@
 module shorthand_detector
+include("GreggAlphabet.jl")
+using .GreggAlphabet
 include("Drawer/Drawer.jl")
 using .Drawer
 
-using AMDGPU
+# using AMDGPU
 # AMDGPU.allowscalar(true)
 using MLDatasets, Flux, JLD2  # this will install everything if necc.
 using Statistics: mean  # standard library
@@ -33,7 +35,7 @@ function run()
     # exit()
 
 
-    function ready_picture!(picture_path::String, label::String, all_features::Vector{Array{Float32,2}}, all_labels::Vector{String})
+    function ready_picture!(picture_path::String, label::Letter, all_features::Vector{Array{Float32,2}}, all_labels::Vector{Letter})
         img = FileIO.load(picture_path)
         img_array = Gray.(img)
 
@@ -41,19 +43,21 @@ function run()
         push!(all_labels, label)
     end
 
-    global_subdirs = ["k", "p", "r"]
+    # global_subdirs = ["k", "p", "r", "g"]
+    letters_to_predict = [_K, _P, _R, _G]
     function load_from_directory(proportion::Float64)
         base_dir = joinpath(@__DIR__, "..", "data")
         # "data"
 
         # hard coded image size for now
         training_features = Vector{Array{Float32,2}}()
-        training_labels = Vector{String}()
+        training_labels = Vector{Letter}()
 
         testing_features = Vector{Array{Float32,2}}()
-        testing_labels = Vector{String}()
+        testing_labels = Vector{Letter}()
 
-        for subdir in global_subdirs
+        for subdir_enum in letters_to_predict
+            subdir = to_string(subdir_enum)
             full_dir = "$(base_dir)/$(subdir)"
             num_instances = length(readdir(full_dir))
             train_range = 1:floor(Int, num_instances * proportion)
@@ -61,11 +65,11 @@ function run()
             println("train range $(train_range) and test range $(test_range)")
             for picture_number in train_range
                 # println("picture number $picture_number")
-                ready_picture!("$(full_dir)/$(picture_number).png", subdir, training_features, training_labels)
+                ready_picture!("$(full_dir)/$(picture_number).png", subdir_enum, training_features, training_labels)
             end
             for picture_number in test_range
                 # println("picture number $picture_number")
-                ready_picture!("$(full_dir)/$(picture_number).png", subdir, testing_features, testing_labels)
+                ready_picture!("$(full_dir)/$(picture_number).png", subdir_enum, testing_features, testing_labels)
             end
         end
         training_features = reshape(reduce(hcat, training_features), 50, 50, :)
@@ -86,7 +90,7 @@ function run()
 
     function loader(data::Data=train_data; batchsize::Int=64)
         x4dim = reshape(data.features, 50, 50, 1, :)   # insert trivial channel dim
-        yhot = Flux.onehotbatch(data.targets, global_subdirs)  # make a 10×60000 OneHotMatrix
+        yhot = Flux.onehotbatch(data.targets, letters_to_predict)  # make a 10×60000 OneHotMatrix
         Flux.DataLoader((x4dim, yhot); batchsize, shuffle=true) |> gpu
     end
 
@@ -110,12 +114,13 @@ function run()
         Flux.flatten,
         Dense(1296 => 120, relu),
         Dense(120 => 84, relu),
-        Dense(84 => 3),
+        Dense(84 => length(letters_to_predict)),
     ) |> gpu
 
     # Notice that most of the parameters are in the final Dense layers.
 
-    AMDGPU.@allowscalar y1hat = lenet(x1)  # try it out
+    # AMDGPU.@allowscalar
+    y1hat = lenet(x1)  # try it out
 
     sum(softmax(y1hat); dims=1)
 
@@ -124,7 +129,7 @@ function run()
     # we can look for the largest output in each column, without needing softmax first.
     # At the moment, these don't resemble the true values at all:
 
-    @show hcat(Flux.onecold(y1hat, global_subdirs), Flux.onecold(y1, global_subdirs))
+    @show hcat(Flux.onecold(y1hat, letters_to_predict), Flux.onecold(y1, letters_to_predict))
 
     #===== METRICS =====#
 
@@ -186,7 +191,7 @@ function run()
 
     # We can re-run the quick sanity-check of predictions:
     y1hat = lenet(x1)
-    @show hcat(Flux.onecold(y1hat, global_subdirs), Flux.onecold(y1, global_subdirs))
+    @show hcat(Flux.onecold(y1hat, letters_to_predict), Flux.onecold(y1, letters_to_predict))
 
     #===== INSPECTION =====#
 
@@ -199,7 +204,7 @@ function run()
 
     xtest[:, :, 1, 5] .|> Gray |> transpose |> cpu
 
-    Flux.onecold(ytest, global_subdirs)[5]  # true label, should match!
+    Flux.onecold(ytest, letters_to_predict)[5]  # true label, should match!
 
     # Let's look for the image whose classification is least certain.
     # First, in each column of probabilities, ask for the largest one.
@@ -211,9 +216,9 @@ function run()
 
     xtest[:, :, 1, i] .|> Gray |> transpose |> cpu
 
-    Flux.onecold(ytest, global_subdirs)[i]  # true classification
+    Flux.onecold(ytest, letters_to_predict)[i]  # true classification
     ptest[:, i]  # probabilities of all outcomes
-    Flux.onecold(ptest[:, i], global_subdirs)  # uncertain prediction
+    Flux.onecold(ptest[:, i], letters_to_predict)  # uncertain prediction
 
     #===== ARRAY SIZES =====#
 
@@ -257,7 +262,7 @@ function run()
         Flux.flatten,
         Dense(_ => 120, relu),
         Dense(_ => 84, relu),
-        Dense(_ => 3)
+        Dense(_ => length(letters_to_predict))
     )
 
     # Check that this indeed accepts input the same size as above:
@@ -286,14 +291,15 @@ function run()
         written_r = imresize(written_r, (50, 50))
         written_r = reshape(written_r, 50, 50, 1, :)
         vals = softmax(lenet(written_r))
-        println("$(vals), $(global_subdirs)")
-        prediction = Flux.onecold(softmax(lenet2(written_r)), global_subdirs)
+        println("$(vals), $(letters_to_predict)")
+        prediction = Flux.onecold(softmax(lenet2(written_r)), letters_to_predict)
         println(prediction)
     end
 
     predict_on_file("data/written_k.png")
     predict_on_file("data/k_path.png")
     predict_on_file("data/r-transformed.png")
+    predict_on_file("data/g_path.png")
 
     #===== THE END =====#
 end

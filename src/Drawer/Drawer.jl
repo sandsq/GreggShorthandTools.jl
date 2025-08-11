@@ -1,10 +1,13 @@
 module Drawer
 
 export test_func,
-       draw_ellipse,
-       draw_stroke
+    # draw_ellipse,
+    draw_stroke
 
+# include("../GreggAlphabet.jl")
+using ..GreggAlphabet
 using Luxor
+using Match
 import Random: AbstractRNG, default_rng
 
 const BASE_DIR = joinpath(@__DIR__, "..", "..", "data")
@@ -26,7 +29,7 @@ const CENTER_Y = CANVAS_HEIGHT / 2
 
 Draw `k` or `g` stroke. Rotate for `r, l, p, b, f, v`
 """
-function draw_stroke(rng::AbstractRNG, path::String; rotation=0)
+function draw_stroke(rng::AbstractRNG, letter::Letter, path::String; rotation=0)
     # println("saving $(BASE_DIR)/k_path.png")
     println("saving to $path")
 
@@ -41,10 +44,22 @@ function draw_stroke(rng::AbstractRNG, path::String; rotation=0)
 
     # scale(0.25)
 
-    tiny_offset_base() = randomize_between(rng, 14, 20)
-    small_offset_base() = randomize_between(rng, 7, 9)
-    medium_offset_base() = randomize_between(rng, 4.5, 6.5)
-    large_offset_base() = randomize_between(rng, 2, 3)
+    (tiny_range, small_range, medium_range, large_range) =
+        if letter == _K
+            ((14, 20), (7, 9), (4.5, 6.5), (2, 3))
+        elseif letter == _G
+            ((14, 20), (7, 9), (2.1, 3), (2, 3))
+        else
+            error("$letter is not a valid Gregg letter")
+        end
+
+    println("med range $medium_range")
+    exit()
+    tiny_offset_base() = randomize_between(rng, tiny_range...)
+    small_offset_base() = randomize_between(rng, small_range...)
+    # medium_offset_base() = randomize_between(rng, 4.5, 6.5)
+    medium_offset_base() = randomize_between(rng, medium_range...)
+    large_offset_base() = randomize_between(rng, large_range...)
 
     tiny_offset_x() = CANVAS_WIDTH / tiny_offset_base()
     tiny_offset_y() = CANVAS_HEIGHT / tiny_offset_base()
