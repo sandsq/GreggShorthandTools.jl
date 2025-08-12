@@ -3,27 +3,56 @@ include("Alphabet.jl")
 using .Alphabet
 include("Drawer/Drawer.jl")
 using .Drawer
+include("data_utils.jl")
 
-# using AMDGPU
-# AMDGPU.allowscalar(true)
+# using DrWatson
+# @quickactivate "spatial_transformer"
+
+using AMDGPU
+AMDGPU.allowscalar(false)
 using MLDatasets, Flux, JLD2  # this will install everything if necc.
+using Zygote
+using Flux: batch, onehotbatch, flatten, unsqueeze
+using Flux: DataLoader
 using Statistics: mean  # standard library
 using ImageCore, ImageInTerminal, Images
 using FileIO
+using LinearAlgebra, Statistics
+using Base.Iterators: partition
+using Plots
+using ProgressMeter
+using ProgressMeter: Progress
 
-export run
+export run, run_spatial_transformer
 
-struct Data
-    features
-    targets
-    split
-end
-function Base.length(d::Data)
-    return length(d.targets)
-end
+
 
 const IMAGE_SIZE_X = 100
 const IMAGE_SIZE_Y = 100
+
+function run_spatial_transformer()
+    args = Dict(
+        :bsz => 64, # batch size
+        :img_size => (28, 28), # mnist image size
+        :n_epochs => 40, # no. epochs to train
+    )
+
+    ## ==== GPU
+    dev = gpu
+
+    ## ==== Data
+    letters_to_predict = [_K, _G, _R, _L, _P, _B, _F, _V, _T, _D, _N, _M]
+
+    train_digits, train_labels = MNIST(split=:train)[:]
+    test_digits, test_labels = MNIST(split=:test)[:]
+
+    train_labels_onehot = Flux.onehotbatch(train_labels, 0:9)
+    test_labels_onehot = Flux.onehotbatch(test_labels, 0:9)
+
+    train_loader = DataLoader((train_digits |> dev, train_labels_onehot |> dev), batchsize=args[:bsz], shuffle=true, partial=false)
+    test_loader = DataLoader((test_digits |> dev, test_labels_onehot |> dev), batchsize=args[:bsz], shuffle=true, partial=false)
+end
+
 
 function run()
 
@@ -38,49 +67,11 @@ function run()
     # exit()
 
 
-    function ready_picture!(picture_path::String, label::Letter, all_features::Vector{Array{Float32,2}}, all_labels::Vector{Letter})
-        img = FileIO.load(picture_path)
-        img_array = Gray.(img)
 
-        push!(all_features, img_array)
-        push!(all_labels, label)
-    end
 
     # global_subdirs = ["k", "p", "r", "g"]
     letters_to_predict = [_K, _G, _R, _L, _P, _B, _F, _V, _T, _D, _N, _M]
-    function load_from_directory(proportion::Float64)
-        base_dir = joinpath(@__DIR__, "..", "data")
-        # "data"
-
-        # hard coded image size for now
-        training_features = Vector{Array{Float32,2}}()
-        training_labels = Vector{Letter}()
-
-        testing_features = Vector{Array{Float32,2}}()
-        testing_labels = Vector{Letter}()
-
-        for subdir_enum in letters_to_predict
-            subdir = to_string(subdir_enum)
-            full_dir = "$(base_dir)/$(subdir)"
-            num_instances = length(readdir(full_dir))
-            train_range = 1:floor(Int, num_instances * proportion)
-            test_range = ceil(Int, num_instances * proportion):num_instances
-            println("train range $(train_range) and test range $(test_range)")
-            for picture_number in train_range
-                # println("picture number $picture_number")
-                ready_picture!("$(full_dir)/$(picture_number).png", subdir_enum, training_features, training_labels)
-            end
-            for picture_number in test_range
-                # println("picture number $picture_number")
-                ready_picture!("$(full_dir)/$(picture_number).png", subdir_enum, testing_features, testing_labels)
-            end
-        end
-        training_features = reshape(reduce(hcat, training_features), IMAGE_SIZE_X, IMAGE_SIZE_Y, :)
-        testing_features = reshape(reduce(hcat, testing_features), IMAGE_SIZE_X, IMAGE_SIZE_Y, :)
-        # training_data = Dict("features" => training_features, "targets" => training_labels)
-        # testing_data = Dict("features" => testing_features, "targets" => testing_labels)
-        return Data(training_features, training_labels, :train), Data(testing_features, testing_labels, :test)
-    end
+    
     train_data, test_data = load_from_directory(0.8)
     println("training features $(size(train_data.features))")
     println("training labels $(size(train_data.targets))")

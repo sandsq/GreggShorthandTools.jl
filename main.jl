@@ -8,6 +8,8 @@ using .GreggShorthandTools.Alphabet
 function main(args)
     if "--run" in args
         GreggShorthandTools.run()
+    elseif "--run_st" in args
+        GreggShorthandTools.run_spatial_transformer()
     elseif "--generate" in args
         rng = Xoshiro(0)
         num_samples = 5000
