@@ -1,5 +1,6 @@
 module Drawer
 
+using Luxor: Random
 export test_func,
     # draw_ellipse,
     draw_stroke,
@@ -8,6 +9,7 @@ export test_func,
 # include("../GreggAlphabet.jl")
 using ..GreggShorthandTools.Alphabet
 using Luxor
+import Bezier: bezier as bz
 using Match
 import Random: AbstractRNG, default_rng
 
@@ -33,6 +35,124 @@ end
 
 function randomize_between(inner_rng::AbstractRNG, min_val::Number, max_val::Number)
     return min_val + rand(inner_rng, Float64) * (max_val - min_val)
+end
+
+function draw_stroke_bezier(rng::AbstractRNG, letter::Letter, path::String)
+    println("saving to $path")
+
+    Drawing(CANVAS_HEIGHT, CANVAS_WIDTH, path)
+    origin(CENTER_X, CENTER_Y)
+
+    # @@@@@@@@@@@@@@ background
+    bg_grey = randomize_between(rng, 0.7, 1.0)
+    background(bg_grey, bg_grey, bg_grey)
+
+    D = 100
+    mat = [Luxor.ARGB32(
+        noise(0.01r, 0.01c),
+        noise(0.01r, 0.01c),
+        noise(0.01r, 0.01c),
+        noise(0.01r, 0.01c)) for r in 1:D, c in 1:D]
+    placeimage(mat, boxtopleft())
+
+    setline(randomize_between(rng, 1, 2))
+
+    # # @@@@@@@@@@@@@@ axes
+    # sethue(0.1, 0.6, 0.8)
+    # line(Point(-CANVAS_WIDTH, 0), Point(CANVAS_WIDTH, 0))
+    # line(Point(0, CANVAS_HEIGHT), Point(0, -CANVAS_HEIGHT))
+    # strokepath()
+
+    # @@@@@@@@@@@@@@ stroke
+    (rotation, transformation) =
+        if letter == _K || letter == _G
+            (0, [1 0 0 1 0 0])
+        elseif letter == _L || letter == _R
+            (pi, [1 0 0 1 0 0])
+        elseif letter == _F || letter == _V
+            (-pi / 2.5, [1 0 0 -1 0 0])
+        elseif letter == _P || letter == _B
+            (pi / 1.75, [1 0 0 -1 0 0])
+        else
+            error("$letter is not a valid Gregg letter for stroke")
+        end
+
+    rotate(rotation)# * randomize_between(rng, 0.9, 1.1))
+    translation_amount_x = CANVAS_WIDTH / 5
+    translation_amount_y = CANVAS_HEIGHT / 5
+    translation_noise_x = randomize_between(rng, -translation_amount_x, translation_amount_x)
+    translation_noise_y = randomize_between(rng, -translation_amount_y, translation_amount_y)
+    translate(translation_noise_x, translation_noise_y)
+    transform(transformation)
+
+    sethue("black")
+
+    # these values are manually tuned
+    (scaling_offset_x, scaling_offset_y) =
+        if letter == _K || letter == _R || letter == _P || letter == _F
+            (6, 6)
+        elseif letter == _G || letter == _L || letter == _B || letter == _V
+            (3, 6)
+        else
+            error("$letter is not a valid Gregg letter for stroke")
+        end
+    base_xs = [
+        -CANVAS_WIDTH / scaling_offset_x, # left point
+        -CANVAS_WIDTH / scaling_offset_x / 4, # slight rising
+        CANVAS_WIDTH / scaling_offset_x / 2, # main curve
+        CANVAS_WIDTH / scaling_offset_x, # right point
+        0.9 * CANVAS_WIDTH / scaling_offset_x,
+        0.8 * CANVAS_WIDTH / scaling_offset_x
+    ] # hook end
+    base_ys = [
+        0.2 * CANVAS_HEIGHT / scaling_offset_y,
+        -CANVAS_HEIGHT / scaling_offset_y / 4,
+        -CANVAS_HEIGHT / scaling_offset_y,
+        -0.1 * CANVAS_HEIGHT / scaling_offset_y,
+        0.1 * CANVAS_HEIGHT / scaling_offset_y,
+        0.2 * CANVAS_HEIGHT / scaling_offset_y
+    ]
+
+    base_jitter_x = CANVAS_WIDTH / 15
+    base_jitter_y = CANVAS_HEIGHT / 15
+
+    base_small_jitter_x = CANVAS_WIDTH / 25
+    base_small_jitter_y = CANVAS_HEIGHT / 25
+
+    jitter_x() = randomize_between(rng, -base_jitter_x, base_jitter_x)
+    jitter_y() = randomize_between(rng, -base_jitter_y, base_jitter_y)
+    jitter(x, y) = randomize_between(rng, x, y)
+    hook_jitter_x = jitter(-base_small_jitter_x, base_small_jitter_x)
+    jitter_xs = [
+        jitter(-base_small_jitter_x, base_small_jitter_x),
+        0,
+        jitter_x(),
+        jitter(-base_small_jitter_x, base_small_jitter_x),
+        hook_jitter_x,
+        hook_jitter_x
+    ]
+    hook_jitter_y = jitter(-base_small_jitter_y, base_small_jitter_y)
+    jitter_ys = [
+        jitter(-base_small_jitter_y, base_small_jitter_y),
+        0,
+        jitter_y(),
+        jitter(-base_small_jitter_y, base_small_jitter_y),
+        hook_jitter_y,
+        hook_jitter_y
+    ]
+
+    (xs, ys) = bz(base_xs + jitter_xs, base_ys + jitter_ys)
+    for i in 1:length(xs)-1
+        line(Point(xs[i], ys[i]), Point(xs[i+1], ys[i+1]))
+    end
+    strokepath()
+
+    finish()
+
+end
+
+function draw_stroke_bezier(args...; kwargs...)
+    draw_stroke_bezier(default_rng(), args...; kwargs...)
 end
 
 """
@@ -199,9 +319,9 @@ function draw_line(rng::AbstractRNG, letter::Letter, path::String)
 
     rotation =
         if letter == _N || letter == _M
-            randomize_between(rng, -pi / 32, pi / 32)
+            randomize_between(rng, -deg2rad(3), deg2rad(3))
         elseif letter == _T || letter == _D
-            randomize_between(rng, -pi / 4, -pi / 6)
+            randomize_between(rng, -deg2rad(40), -deg2rad(20))
         else
             error("$letter is not a valid Gregg letter for stroke")
         end

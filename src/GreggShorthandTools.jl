@@ -94,8 +94,8 @@ function run()
     function loader(data::Data=train_data; batchsize::Int=64)
         x4dim = reshape(data.features, IMAGE_SIZE_X, IMAGE_SIZE_Y, 1, :)   # insert trivial channel dim
         yhot = Flux.onehotbatch(data.targets, letters_to_predict)  # make a 10×60000 OneHotMatrix
-        println("x4dim $(size(x4dim))")
-        println("yhot $(size(yhot))")
+        # println("x4dim $(size(x4dim))")
+        # println("yhot $(size(yhot))")
         Flux.DataLoader((x4dim, yhot); batchsize, shuffle=true) |> gpu
     end
 
@@ -163,8 +163,8 @@ function run()
     settings = (;
         eta=3e-4,     # learning rate
         lambda=1e-2,  # for weight decay
-        batchsize=128,
-        epochs=10,
+        batchsize=256,
+        epochs=20,
     )
     train_log = []
 
