@@ -1,321 +1,41 @@
 module GreggShorthandTools
-include("Alphabet.jl")
-using .Alphabet
-include("Drawer/Drawer.jl")
-using .Drawer
-include("data_utils.jl")
 
 # using DrWatson
 # @quickactivate "spatial_transformer"
 
-using AMDGPU
-AMDGPU.allowscalar(false)
-using MLDatasets, Flux, JLD2  # this will install everything if necc.
+# using AMDGPU
+# AMDGPU.allowscalar(false)
+using MLDatasets, Flux, JLD2, MLUtils  # this will install everything if necc.
 using Zygote
-using Flux: batch, onehotbatch, flatten, unsqueeze
+using Flux: batch, onehotbatch, unsqueeze
 using Flux: DataLoader
 using Statistics: mean  # standard library
 using ImageCore, ImageInTerminal, Images
 using FileIO
 using LinearAlgebra, Statistics
 using Base.Iterators: partition
-using Plots
 using ProgressMeter
 using ProgressMeter: Progress
+using ProgressBars
 
-export run, run_spatial_transformer
 
+include("Alphabet.jl")
+using .Alphabet
+include("Drawer/Drawer.jl")
+using .Drawer
 
+include("data_utils.jl")
 
-const IMAGE_SIZE_X = 100
-const IMAGE_SIZE_Y = 100
 
-function run_spatial_transformer()
-    args = Dict(
-        :bsz => 64, # batch size
-        :img_size => (28, 28), # mnist image size
-        :n_epochs => 40, # no. epochs to train
-    )
 
-    ## ==== GPU
-    dev = gpu
+export run_conv, run_spatial_transformer
 
-    ## ==== Data
-    letters_to_predict = [_K, _G, _R, _L, _P, _B, _F, _V, _T, _D, _N, _M]
 
-    train_digits, train_labels = MNIST(split=:train)[:]
-    test_digits, test_labels = MNIST(split=:test)[:]
 
-    train_labels_onehot = Flux.onehotbatch(train_labels, 0:9)
-    test_labels_onehot = Flux.onehotbatch(test_labels, 0:9)
+const IMAGE_SIZE_X = 50
+const IMAGE_SIZE_Y = 50
 
-    train_loader = DataLoader((train_digits |> dev, train_labels_onehot |> dev), batchsize=args[:bsz], shuffle=true, partial=false)
-    test_loader = DataLoader((test_digits |> dev, test_labels_onehot |> dev), batchsize=args[:bsz], shuffle=true, partial=false)
-end
+include("models/spatial_transformer.jl")
+include("models/conv.jl")
 
-
-function run()
-
-    folder = "runs"  # sub-directory in which to save
-    isdir(folder) || mkdir(folder)
-    filename = joinpath(folder, "lenet.jld2")
-
-    #===== DATA =====#
-
-    # train_data = MLDatasets.MNIST()
-    # println(train_data.split)
-    # exit()
-
-
-
-
-    # global_subdirs = ["k", "p", "r", "g"]
-    letters_to_predict = [_K, _G, _R, _L, _P, _B, _F, _V, _T, _D, _N, _M]
-    
-    train_data, test_data = load_from_directory(0.8)
-    println("training features $(size(train_data.features))")
-    println("training labels $(size(train_data.targets))")
-    # println(train_data.features)
-    # exit()
-
-    # train_data.features is a 28×28×60000 Array{Float32, 3} of the images.
-    # Flux needs a 4D array, with the 3rd dim for channels -- here trivial, grayscale.
-    # Combine the reshape needed with other pre-processing:
-
-    function loader(data::Data=train_data; batchsize::Int=64)
-        x4dim = reshape(data.features, IMAGE_SIZE_X, IMAGE_SIZE_Y, 1, :)   # insert trivial channel dim
-        yhot = Flux.onehotbatch(data.targets, letters_to_predict)  # make a 10×60000 OneHotMatrix
-        # println("x4dim $(size(x4dim))")
-        # println("yhot $(size(yhot))")
-        Flux.DataLoader((x4dim, yhot); batchsize, shuffle=true) |> gpu
-    end
-
-    loader()  # returns a DataLoader, with first element a tuple like this:
-
-    x1, y1 = first(loader()) # (28×28×1×64 Array{Float32, 3}, 10×64 OneHotMatrix(::Vector{UInt32}))
-
-    # If you are using a GPU, these should be CuArray{Float32, 3} etc.
-    # If not, the `gpu` function does nothing (except complain the first time).
-
-    #===== MODEL =====#
-
-    # LeNet has two convolutional layers, and our modern version has relu nonlinearities.
-    # After each conv layer there's a pooling step. Finally, there are some fully connected layers:
-
-    lenet = Chain(
-        Conv((5, 5), 1 => 6, relu),
-        MaxPool((2, 2)),
-        Conv((5, 5), 6 => 16, relu),
-        MaxPool((2, 2)),
-        Flux.flatten,
-        Dense(7744 => 120, relu),
-        Dense(120 => 84, relu),
-        Dense(84 => length(letters_to_predict)),
-    ) |> gpu
-
-    # Notice that most of the parameters are in the final Dense layers.
-
-    # AMDGPU.@allowscalar
-    y1hat = lenet(x1)  # try it out
-
-    sum(softmax(y1hat); dims=1)
-
-    # Each column of softmax(y1hat) may be thought of as the network's probabilities
-    # that an input image is in each of 10 classes. To find its most likely answer,
-    # we can look for the largest output in each column, without needing softmax first.
-    # At the moment, these don't resemble the true values at all:
-
-    @show hcat(Flux.onecold(y1hat, letters_to_predict), Flux.onecold(y1, letters_to_predict))
-
-    #===== METRICS =====#
-
-    # We're going to log accuracy and loss during training. There's no advantage to
-    # calculating these on minibatches, since MNIST is small enough to do it at once.
-
-
-
-    function loss_and_accuracy(model, data::Data=test_data)
-        d = loader(data; batchsize=length(data))  # make one big batch
-        # d = loader(data; batchsize=100)
-        (x, y) = only(d)
-        ŷ = model(x)
-        loss = Flux.logitcrossentropy(ŷ, y)  # did not include softmax in the model
-        acc = round(100 * mean(Flux.onecold(ŷ) .== Flux.onecold(y)); digits=2)
-        (; loss, acc, split=data.split)  # return a NamedTuple
-    end
-
-    @show loss_and_accuracy(lenet)
-
-    #===== TRAINING =====#
-
-    # Let's collect some hyper-parameters in a NamedTuple, just to write them in one place.
-    # Global variables are fine -- we won't access this from inside any fast loops.
-
-    settings = (;
-        eta=3e-4,     # learning rate
-        lambda=1e-2,  # for weight decay
-        batchsize=256,
-        epochs=20,
-    )
-    train_log = []
-
-    # Initialise the storage needed for the optimiser:
-
-    opt_rule = OptimiserChain(WeightDecay(settings.lambda), Adam(settings.eta))
-    opt_state = Flux.setup(opt_rule, lenet)
-
-    # println("@@@@@@@@@@@@@@@@@@ skipping training for now by setting epochs to 0")
-    for epoch in 1:settings.epochs
-        # @time will show a much longer time for the first epoch, due to compilation
-        @time for (x, y) in loader(batchsize=settings.batchsize)
-            grads = Flux.gradient(m -> Flux.logitcrossentropy(m(x), y), lenet)
-            Flux.update!(opt_state, lenet, grads[1])
-        end
-
-        # Logging & saving, but not on every epoch
-        if epoch % 2 == 1
-            loss, acc, _ = loss_and_accuracy(lenet)
-            test_loss, test_acc, _ = loss_and_accuracy(lenet, test_data)
-            @info "logging:" epoch acc test_acc
-            nt = (; epoch, loss, acc, test_loss, test_acc)  # make a NamedTuple
-            push!(train_log, nt)
-        end
-        if epoch % 5 == 0
-            JLD2.jldsave(filename; lenet_state=Flux.state(lenet) |> cpu)
-            println("saved to ", filename, " after ", epoch, " epochs")
-        end
-    end
-
-    @show train_log
-
-    # We can re-run the quick sanity-check of predictions:
-    y1hat = lenet(x1)
-    @show hcat(Flux.onecold(y1hat, letters_to_predict), Flux.onecold(y1, letters_to_predict))
-
-    #===== INSPECTION =====#
-
-
-
-    xtest, ytest = only(loader(test_data, batchsize=length(test_data)))
-
-    # There are many ways to look at images, you won't need ImageInTerminal if working in a notebook.
-    # ImageCore.Gray is a special type, whick interprets numbers between 0.0 and 1.0 as shades:
-
-    xtest[:, :, 1, 5] .|> Gray |> transpose |> cpu
-
-    Flux.onecold(ytest, letters_to_predict)[5]  # true label, should match!
-
-    # Let's look for the image whose classification is least certain.
-    # First, in each column of probabilities, ask for the largest one.
-    # Then, over all images, ask for the lowest such probability, and its index.
-
-    ptest = softmax(lenet(xtest))
-    max_p = maximum(ptest; dims=1)
-    _, i = findmin(vec(max_p))
-
-    xtest[:, :, 1, i] .|> Gray |> transpose |> cpu
-
-    Flux.onecold(ytest, letters_to_predict)[i]  # true classification
-    ptest[:, i]  # probabilities of all outcomes
-    Flux.onecold(ptest[:, i], letters_to_predict)  # uncertain prediction
-
-    #===== ARRAY SIZES =====#
-
-    # A layer like Conv((5, 5), 1=>6) takes 5x5 patches of an image, and matches them to each
-    # of 6 different 5x5 filters, placed at every possible position. These filters are here:
-
-    Conv((5, 5), 1 => 6).weight |> summary  # 5×5×1×6 Array{Float32, 4}
-
-    # This layer can accept any size of image; let's trace the sizes with the actual input:
-
-    #=
-
-    julia> x1 |> size
-    (28, 28, 1, 64)
-
-    julia> lenet[1](x1) |> size  # after Conv((5, 5), 1=>6, relu),
-    (24, 24, 6, 64)
-
-    julia> lenet[1:2](x1) |> size  # after MaxPool((2, 2))
-    (12, 12, 6, 64)
-
-    julia> lenet[1:3](x1) |> size  # after Conv((5, 5), 6 => 16, relu)
-    (8, 8, 16, 64)
-
-    julia> lenet[1:4](x1) |> size  # after MaxPool((2, 2))
-    (4, 4, 16, 64)
-
-    julia> lenet[1:5](x1) |> size  # after Flux.flatten
-    (256, 64)
-
-    =#
-
-    # Flux.flatten is just reshape, preserving the batch dimesion (64) while combining others (4*4*16).
-    # This 256 must match the Dense(256 => 120). Here is how to automate this, with Flux.outputsize:
-
-    lenet2 = Flux.@autosize (IMAGE_SIZE_X, IMAGE_SIZE_Y, 1, 1) Chain(
-        Conv((5, 5), 1 => 6, relu),
-        MaxPool((2, 2)),
-        Conv((5, 5), _ => 16, relu),
-        MaxPool((2, 2)),
-        Flux.flatten,
-        Dense(_ => 120, relu),
-        Dense(_ => 84, relu),
-        Dense(_ => length(letters_to_predict))
-    )
-
-    # Check that this indeed accepts input the same size as above:
-
-    @show lenet2(cpu(x1)) |> size
-
-    #===== LOADING =====#
-
-    # During training, the code above saves the model state to disk. Load the last version:
-
-    loaded_state = JLD2.load(filename, "lenet_state")
-
-    # Now you would normally re-create the model, and copy all parameters into that.
-    # We can use lenet2 from just above:
-
-    Flux.loadmodel!(lenet2, loaded_state)
-
-    # Check that it now agrees with the earlier, trained, model:
-
-    @show lenet2(cpu(x1)) ≈ cpu(lenet(x1))
-
-    function predict_on_file(path)
-        written_r = FileIO.load(path)
-        written_r = Gray.(written_r)
-        written_r = imresize(written_r, (IMAGE_SIZE_X, IMAGE_SIZE_Y))
-        written_r = reshape(written_r, IMAGE_SIZE_X, IMAGE_SIZE_Y, 1, :)
-        vals = softmax(lenet2(written_r))
-
-        println("@@@@@")
-        println("$(vals), $(letters_to_predict)")
-        prediction = Flux.onecold(softmax(lenet2(written_r)), letters_to_predict)
-        println(path)
-        println(prediction)
-        println()
-    end
-
-    predict_on_file("data/written_k.png")
-    predict_on_file("data/written_k_background_corrected.png")
-    predict_on_file("data/r-transformed.png")
-    predict_on_file("data/handwritten/k.png")
-    predict_on_file("data/handwritten/g.png")
-    predict_on_file("data/handwritten/r.png")
-    predict_on_file("data/handwritten/l.png")
-
-    predict_on_file("data/handwritten/p.png")
-    predict_on_file("data/handwritten/b.png")
-    predict_on_file("data/handwritten/f.png")
-    predict_on_file("data/handwritten/v.png")
-
-    predict_on_file("data/t/1.png")
-    predict_on_file("data/d/1.png")
-    predict_on_file("data/m/1.png")
-    predict_on_file("data/n/1.png")
-
-    #===== THE END =====#
-end
 end

@@ -6,3 +6,4 @@ using Test
 # end
 
 include("test_drawer.jl")
+include("test_data_utils.jl")

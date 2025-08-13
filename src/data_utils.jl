@@ -10,6 +10,7 @@ end
 function ready_picture!(picture_path::String, label::Letter, all_features::Vector{Array{Float32,2}}, all_labels::Vector{Letter})
     img = FileIO.load(picture_path)
     img_array = Gray.(img)
+    # img_array = Float32.(img)
 
     push!(all_features, img_array)
     push!(all_labels, label)
@@ -44,6 +45,9 @@ function load_from_directory(proportion::Float64, letters_to_predict::Vector{Let
     end
     training_features = reshape(reduce(hcat, training_features), IMAGE_SIZE_X, IMAGE_SIZE_Y, :)
     testing_features = reshape(reduce(hcat, testing_features), IMAGE_SIZE_X, IMAGE_SIZE_Y, :)
+
+    # training_labels = reduce(hcat, training_labels)
+    # testing_labels = reduce(hcat, testing_labels)
     # training_data = Dict("features" => training_features, "targets" => training_labels)
     # testing_data = Dict("features" => testing_features, "targets" => testing_labels)
     return Data(training_features, training_labels, :train), Data(testing_features, testing_labels, :test)

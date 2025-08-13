@@ -14,7 +14,7 @@ using Match
 import Random: AbstractRNG, default_rng
 
 const BASE_DIR = joinpath(@__DIR__, "..", "..", "data")
-const SQUARE_CANVAS_SIZE = 100
+const SQUARE_CANVAS_SIZE = 50
 const CANVAS_HEIGHT = SQUARE_CANVAS_SIZE
 const CANVAS_WIDTH = SQUARE_CANVAS_SIZE
 const CENTER_X = CANVAS_WIDTH / 2
