@@ -73,7 +73,7 @@ function create_model(window_size::Number, n_classes::Number; misc="")
                 Conv((1, window_size), 16 => 32, relu, pad=SamePad()),
                 MaxPool((2, 2)),
                 GlobalMeanPool(),
-                MaxPool((1, 1)),
+                # MaxPool((1, 1)),
                 flatten,
 
             ),
@@ -85,7 +85,7 @@ function create_model(window_size::Number, n_classes::Number; misc="")
                 Conv((window_size, 1), 16 => 32, relu, pad=SamePad()),
                 MaxPool((2, 2)),
                 GlobalMaxPool(),
-                MaxPool((1, 1)),
+                # MaxPool((1, 1)),
                 flatten,
 
             ),
@@ -97,7 +97,7 @@ function create_model(window_size::Number, n_classes::Number; misc="")
                 Conv((window_size + 2, window_size + 2), 16 => 32, relu, pad=SamePad()),
                 MaxPool((2, 2)),
                 GlobalMaxPool(),
-                MaxPool((1, 1)),
+                # MaxPool((1, 1)),
                 flatten,
 
             )),
@@ -142,7 +142,7 @@ function run_conv(;param_epochs=10, should_load_model=false)
     # exit()
 
     # global_subdirs = ["k", "p", "r", "g"]
-    letters_to_predict = [_K, _G, _R, _L, _P, _B, _F, _V, _T, _D, _N, _M]
+    letters_to_predict = [_K, _G, _R, _L, _P, _B, _F, _V, _T, _D, _N, _M, _A, _E]
 
     train_data, test_data = load_from_directory(0.8, letters_to_predict)
     println("training features $(size(train_data.features))")
@@ -154,12 +154,12 @@ function run_conv(;param_epochs=10, should_load_model=false)
     # Flux needs a 4D array, with the 3rd dim for channels -- here trivial, grayscale.
     # Combine the reshape needed with other pre-processing:
 
-    function loader(data::Data=train_data; batchsize::Int=64)
+    function loader(data::Data=train_data; batchsize::Int=64, shuffle=true)
         x4dim = reshape(data.features, IMAGE_SIZE_X, IMAGE_SIZE_Y, 1, :)   # insert trivial channel dim
         yhot = Flux.onehotbatch(data.targets, letters_to_predict)  # make a 10×60000 OneHotMatrix
         # println("x4dim $(size(x4dim))")
         # println("yhot $(size(yhot))")
-        Flux.DataLoader((x4dim, yhot); batchsize, shuffle=true) |> gpu
+        Flux.DataLoader((x4dim, yhot); batchsize, shuffle=shuffle) |> gpu
     end
 
     loader()  # returns a DataLoader, with first element a tuple like this:
@@ -173,8 +173,8 @@ function run_conv(;param_epochs=10, should_load_model=false)
 
     # LeNet has two convolutional layers, and our modern version has relu nonlinearities.
     # After each conv layer there's a pooling step. Finally, there are some fully connected layers:
-    window_size = 5
-    lenet, file_stem = create_model(window_size, length(letters_to_predict); misc="multilayer_conv_in_split_global_maxpool")
+    window_size = 3
+    lenet, file_stem = create_model(window_size, length(letters_to_predict); misc="multilayer_conv_in_split_global_maxpool_with_ae")
     filename = joinpath(folder, "$file_stem.jld2")
     details_file = joinpath(folder, "$file_stem.txt")
     @show lenet
@@ -434,6 +434,11 @@ function run_conv(;param_epochs=10, should_load_model=false)
         println()
     end
 
+    predict_on_file("data/t/1.png")
+    predict_on_file("data/d/1.png")
+    predict_on_file("data/m/1.png")
+    predict_on_file("data/n/1.png")
+
     predict_on_file("data/written_k.png")
     predict_on_file("data/written_k_background_corrected.png")
     predict_on_file("data/r-transformed.png")
@@ -447,10 +452,8 @@ function run_conv(;param_epochs=10, should_load_model=false)
     predict_on_file("data/handwritten/f.png")
     predict_on_file("data/handwritten/v.png")
 
-    predict_on_file("data/t/1.png")
-    predict_on_file("data/d/1.png")
-    predict_on_file("data/m/1.png")
-    predict_on_file("data/n/1.png")
+    predict_on_file("data/handwritten/a.png")
+    predict_on_file("data/handwritten/e.png")
 
     #===== THE END =====#
 end
