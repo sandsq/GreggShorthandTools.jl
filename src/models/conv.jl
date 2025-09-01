@@ -142,7 +142,7 @@ function run_conv(;param_epochs=10, should_load_model=false)
     # exit()
 
     # global_subdirs = ["k", "p", "r", "g"]
-    letters_to_predict = [_K, _G, _R, _L, _P, _B, _F, _V, _T, _D, _N, _M, _A, _E]
+    letters_to_predict = [_K, _G, _R, _L, _P, _B, _F, _V, _T, _D, _N, _M, _A, _E, _O, _U]
 
     train_data, test_data = load_from_directory(0.8, letters_to_predict)
     println("training features $(size(train_data.features))")
@@ -174,7 +174,7 @@ function run_conv(;param_epochs=10, should_load_model=false)
     # LeNet has two convolutional layers, and our modern version has relu nonlinearities.
     # After each conv layer there's a pooling step. Finally, there are some fully connected layers:
     window_size = 3
-    lenet, file_stem = create_model(window_size, length(letters_to_predict); misc="multilayer_conv_in_split_global_maxpool_with_ae")
+    lenet, file_stem = create_model(window_size, length(letters_to_predict); misc="multilayer_conv_in_split_global_maxpool_with_aeou")
     filename = joinpath(folder, "$file_stem.jld2")
     details_file = joinpath(folder, "$file_stem.txt")
     @show lenet
@@ -231,7 +231,7 @@ function run_conv(;param_epochs=10, should_load_model=false)
                 # println(true_y)
 
                 if true_y != predicted_y
-                    println("$i: predicted $predicted_y, true $true_y")
+                    println("$i: predicted $predicted_y, true $true_y, path $(data.paths[i])")
                 end
             end
         end

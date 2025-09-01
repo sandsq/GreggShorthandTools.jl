@@ -95,7 +95,7 @@ function draw_stroke_bezier(rng::AbstractRNG, letter::Letter, path::String)
     # these values are manually tuned
     (scaling_offset_x, scaling_offset_y) =
         if letter == _K || letter == _R || letter == _P || letter == _F
-            (6, 6)
+            (5, 6)
         elseif letter == _G || letter == _L || letter == _B || letter == _V
             (3, 6)
         else
@@ -145,6 +145,10 @@ function draw_stroke_bezier(rng::AbstractRNG, letter::Letter, path::String)
         hook_jitter_y,
         hook_jitter_y
     ]
+
+    skew_x = randomize_between(rng, -0.4, 0.4)
+    skew_y = randomize_between(rng, -0.4, 0.4)
+    transform([1 skew_x skew_y 1 0 0])
 
     (xs, ys) = bz(base_xs + jitter_xs, base_ys + jitter_ys)
     for i in 1:length(xs)-1
@@ -271,7 +275,101 @@ function draw_ae(args...; kwargs...)
 end
 
 function draw_ou(rng::AbstractRNG, letter::Letter, path::String)
+    println("saving to $path")
 
+    Drawing(CANVAS_HEIGHT, CANVAS_WIDTH, path)
+    origin(CENTER_X, CENTER_Y)
+
+    # @@@@@@@@@@@@@@ background
+    draw_background(rng)
+
+    setline(randomize_between(rng, 1, 2))
+
+    # # @@@@@@@@@@@@@@ axes
+    # sethue(0.1, 0.6, 0.8)
+    # line(Point(-CANVAS_WIDTH, 0), Point(CANVAS_WIDTH, 0))
+    # line(Point(0, CANVAS_HEIGHT), Point(0, -CANVAS_HEIGHT))
+    # strokepath()
+
+    # @@@@@@@@@@@@@@ stroke
+
+
+
+    translation_amount_x = CANVAS_WIDTH / 5
+    translation_amount_y = CANVAS_HEIGHT / 5
+    translation_noise_x = randomize_between(rng, -translation_amount_x, translation_amount_x)
+    translation_noise_y = randomize_between(rng, -translation_amount_y, translation_amount_y)
+    translate(translation_noise_x, translation_noise_y)
+
+    sethue("black")
+
+    # these values are manually tuned
+    (scaling_offset_x, scaling_offset_y) = (10, 5)
+
+    base_xs = [
+        -CANVAS_WIDTH / scaling_offset_x, # left point
+        # -CANVAS_WIDTH / scaling_offset_x / 2,
+        0,
+        CANVAS_WIDTH / scaling_offset_x,
+        CANVAS_WIDTH / scaling_offset_x
+    ]
+    base_ys = [
+        0,
+        -CANVAS_HEIGHT / scaling_offset_y / 1.5,
+        -CANVAS_HEIGHT / scaling_offset_y,
+        0,
+    ]
+
+    base_jitter_x = CANVAS_WIDTH / 20
+    base_jitter_y = CANVAS_HEIGHT / 20
+
+    base_small_jitter_x = CANVAS_WIDTH / 20
+    base_small_jitter_y = CANVAS_HEIGHT / 20
+
+    jitter_x() = randomize_between(rng, -base_jitter_x, base_jitter_x)
+    jitter_y() = randomize_between(rng, -base_jitter_y, base_jitter_y)
+    jitter(x, y) = randomize_between(rng, x, y)
+    initial_jitter_x = jitter(-base_small_jitter_x, base_small_jitter_x)
+    first_jitter_x = jitter(-base_small_jitter_x, base_small_jitter_x)
+    second_jitter_x = jitter(-base_small_jitter_x, base_small_jitter_x)
+    jitter_xs = [
+        initial_jitter_x,
+        first_jitter_x,
+        first_jitter_x,
+        initial_jitter_x,
+    ]
+    initial_jitter_y = jitter(-base_small_jitter_y, 0)
+    first_jitter_y = jitter(-base_small_jitter_y, base_small_jitter_y)
+    second_jitter_y = jitter(-base_small_jitter_y, base_small_jitter_y)
+    third_jitter_y = jitter(0, base_small_jitter_y)
+    jitter_ys = [
+        initial_jitter_y,
+        first_jitter_y,
+        first_jitter_y,
+        third_jitter_y,
+    ]
+
+    skew_x = randomize_between(rng, -0.2, 0.2)
+    skew_y = randomize_between(rng, -0.2, 0.2)
+    transform([1 skew_x skew_y 1 0 0])
+
+    rotation = if letter == _U
+        deg2rad(randomize_between(rng, -2, 2))
+    elseif letter == _O
+        deg2rad(randomize_between(rng, 178.0, 182.0))
+    else
+        error("$letter not valid for ou")
+    end
+
+    rotate(rotation)
+
+    (xs, ys) = bz(base_xs + jitter_xs, base_ys + jitter_ys)
+    for i in 1:length(xs)-1
+        line(Point(xs[i], ys[i]), Point(xs[i+1], ys[i+1]))
+    end
+    strokepath()
+
+    finish()
 end
 
 function draw_ou(args...; kwargs...)

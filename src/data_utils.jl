@@ -2,6 +2,7 @@ struct Data
     features
     targets
     split
+    paths
 end
 function Base.length(d::Data)
     return length(d.targets)
@@ -27,6 +28,9 @@ function load_from_directory(proportion::Float64, letters_to_predict::Vector{Let
     testing_features = Vector{Array{Float32,2}}()
     testing_labels = Vector{Letter}()
 
+    training_paths = Vector{String}()
+    testing_paths = Vector{String}()
+
     for subdir_enum in letters_to_predict
         subdir = to_string(subdir_enum)
         full_dir = "$(base_dir)/$(subdir)"
@@ -36,11 +40,16 @@ function load_from_directory(proportion::Float64, letters_to_predict::Vector{Let
         println("train range $(train_range) and test range $(test_range)")
         for picture_number in train_range
             # println("picture number $picture_number")
-            ready_picture!("$(full_dir)/$(picture_number).png", subdir_enum, training_features, training_labels)
+            path = "$(full_dir)/$(picture_number).png"
+            push!(training_paths, path)
+            ready_picture!(path, subdir_enum, training_features, training_labels)
+
         end
         for picture_number in test_range
             # println("picture number $picture_number")
-            ready_picture!("$(full_dir)/$(picture_number).png", subdir_enum, testing_features, testing_labels)
+            path = "$(full_dir)/$(picture_number).png"
+            push!(testing_paths, path)
+            ready_picture!(path, subdir_enum, testing_features, testing_labels)
         end
     end
     training_features = reshape(reduce(hcat, training_features), IMAGE_SIZE_X, IMAGE_SIZE_Y, :)
@@ -50,5 +59,5 @@ function load_from_directory(proportion::Float64, letters_to_predict::Vector{Let
     # testing_labels = reduce(hcat, testing_labels)
     # training_data = Dict("features" => training_features, "targets" => training_labels)
     # testing_data = Dict("features" => testing_features, "targets" => testing_labels)
-    return Data(training_features, training_labels, :train), Data(testing_features, testing_labels, :test)
+    return Data(training_features, training_labels, :train, training_paths), Data(testing_features, testing_labels, :test, testing_paths)
 end

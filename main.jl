@@ -52,11 +52,18 @@ function main()
         #         GreggShorthandTools.Drawer.draw_line(rng, letter, path)
         #     end
         # end
-        for letter in [_A, _E]
+        # for letter in [_A, _E]
+        #     for i in 1:num_samples
+        #         path = "/home/sand/.julia/dev/GreggShorthandTools/data/$(to_string(letter))/$i.png"
+        #         mkpath(dirname(path))
+        #         GreggShorthandTools.Drawer.draw_ae(rng, letter, path)
+        #     end
+        # end
+        for letter in [_O, _U]
             for i in 1:num_samples
                 path = "/home/sand/.julia/dev/GreggShorthandTools/data/$(to_string(letter))/$i.png"
                 mkpath(dirname(path))
-                GreggShorthandTools.Drawer.draw_ae(rng, letter, path)
+                GreggShorthandTools.Drawer.draw_ou(rng, letter, path)
             end
         end
     elseif args["test"]
@@ -69,6 +76,9 @@ function main()
 
         GreggShorthandTools.Drawer.draw_ae(_A, "/home/sand/.julia/dev/GreggShorthandTools/data/a_path.png")
         GreggShorthandTools.Drawer.draw_ae(_E, "/home/sand/.julia/dev/GreggShorthandTools/data/e_path.png")
+
+        GreggShorthandTools.Drawer.draw_ou(_O, "/home/sand/.julia/dev/GreggShorthandTools/data/o_path.png")
+        GreggShorthandTools.Drawer.draw_ou(_U, "/home/sand/.julia/dev/GreggShorthandTools/data/u_path.png")
     end
 end
 

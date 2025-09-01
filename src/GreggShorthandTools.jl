@@ -5,7 +5,8 @@ module GreggShorthandTools
 
 # using AMDGPU
 # AMDGPU.allowscalar(false)
-using MLDatasets, Flux, JLD2, MLUtils  # this will install everything if necc.
+# using MLDatasets,
+using Flux, JLD2, MLUtils  # this will install everything if necc.
 using Zygote
 using Flux: batch, onehotbatch, unsqueeze
 using Flux: DataLoader
